@@ -1,0 +1,4 @@
+post_title,post_content,post_excerpt,post_date,post_name,post_author,post_status,featured_image,post_format,comment_status,ping_status,post_category,post_tag
+Blog Post-1,Sample Content -1,Sample excerpt-1,yyyy-mm-dd,bp1,admin,publish,https://berocket.com/img/blog/97001ed5f3bc56eaefc1152c604184a6.png,post-standard,open,closed,single category,"tag1,tag2,tag3"
+Blog Post-2,Sample Content -2,Sample excerpt-2,yyyy-mm-dd,bp2,Shansmith,draft,https://icdc.co.ke/agrocity/wp-content/uploads/2017/07/blog_post.jpg,post-vieo,open,closed,"multi1,multi2","tag1,tag2,tag4"
+Blog Post-3,Sample Content -3,Sample excerpt-3,yyyy-mm-dd,bp3,AlexCarey,publish,https://blog.hotmart.com/blog/2018/01/BLOG_guest-post-vantagens-ALTERACAO-670x419-1.png,post-standard,open,closed,parent>child>grand-child,"tag1,tag2,tag5"
