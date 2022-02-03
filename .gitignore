@@ -1,8 +1,8 @@
 /nysun-articles-table.csv
+/nysun-articles-table copy.csv
 /NYSun Authors List.csv
 /articles-sample.csv
 /authors.json
-/errors/*
 /node_modules/*
 /wp_postmeta.sql
 /wp_posts.sql

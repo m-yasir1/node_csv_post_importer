@@ -41,8 +41,8 @@ const connection = mysql.createConnection({
   // read a csv file
   var authors = await csv().fromFile("./NYSun Authors List.csv");
 
-  total = authors.length;
-  elapsed = 0;
+  var total = authors.length;
+  var elapsed = 0;
   // console.log(authors);
   for (let obj in authors) {
     article_val_key = InsertKeyValue(authors[obj], "authors");
@@ -64,7 +64,7 @@ const connection = mysql.createConnection({
       if (error) {
         fs.appendFile(
           "./errors/author_import.txt",
-          JSON.stringify(error),
+          JSON.stringify(error) + "\n",
           err => {
             if (err) {
               throw err;

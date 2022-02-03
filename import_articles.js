@@ -4,12 +4,19 @@ const fs = require("fs");
 // require csv to json
 const csv = require("csvtojson");
 
-// XML reader
-const xml = require("xml-reader");
-const reader = xml.create();
-
 // require mysql connector
 const mysql = require("mysql");
+
+// require loader
+const loader = require("./loading.js");
+
+// import authorsv data
+var authors = require("./authors.json");
+
+if (!authors) {
+  console.log("Exiting, Authors data doesnot exits");
+  process.exit();
+}
 
 // connect mysql server
 const connection = mysql.createConnection({
@@ -19,39 +26,87 @@ const connection = mysql.createConnection({
   database: "import_test",
 });
 
+const images = [
+  "https://www.dropbox.com/sh/j24ler7a98wjf74/AADpFIGXpTn7bi2i7iJRENtoa?dl=0&preview=nys-featured-image-1D.png",
+  "https://www.dropbox.com/sh/j24ler7a98wjf74/AADpFIGXpTn7bi2i7iJRENtoa?dl=0&preview=nys-featured-image-1B.png",
+  "https://www.dropbox.com/sh/j24ler7a98wjf74/AADpFIGXpTn7bi2i7iJRENtoa?dl=0&preview=nys-featured-image-1A.png",
+];
+
 (async () => {
   // Do connection with mysql
   connection.connect();
+  console.log("\n\n Importing Articles");
+  var bar = loader.bar;
+
+  var cat_list = await fetch_cat();
 
   // read a csv file
-  var articles = await csv().fromFile("./NYSun Authors List.csv");
+  var articles = await csv().fromFile("./nysun-articles-table copy.csv");
 
-  // const file = await fs.readFileSync(
-  //   "./admin.Wordpress.2022-01-20.xml",
-  //   "utf-8"
-  // );
+  var total = articles.length;
 
-  // reader.on("done", data =>
-  //   console.log(data.children[0].children[0].children[0])
-  // );
-  // articles = await reader.parse(file);
-  console.log(articles);
-  // for (let obj in articles) {
-  //   article_val_key = InsertKeyValue(articles[obj], "articles");
-  //   image_val_key = InsertKeyValue(articles[obj], "attachment");
-  //   try {
-  //     article_id = (await InsertArticle(article_val_key)).insertId;
-  //     //   console.log(article_id);
+  var elapsed = 0;
 
-  //     image_id = (await InsertArticle(image_val_key)).insertId;
-  //     //   console.log(image_id);
+  for (let obj in articles) {
+    if (articles[obj]["status"] != "1") {
+      elapsed++;
+      continue;
+    }
 
-  //     InsertMeta(article_id, "_thumbnail_id", image_id);
-  //   } catch (error) {
-  //     console.log(error);
-  //   }
-  // }
+    article_val_key = InsertKeyValue(articles[obj], "articles");
+    articles[obj]["featured_image"] = images[Math.floor(Math.random() * 3)];
+    image_val_key = InsertKeyValue(articles[obj], "attachment");
+    try {
+      article_id = (await InsertArticle(article_val_key)).insertId;
+
+      image_id = (await InsertArticle(image_val_key)).insertId;
+
+      InsertMeta(article_id, "_thumbnail_id", image_id);
+
+      author = authors[articles[obj]["Author"]];
+
+      if (author) {
+        InsertMeta(article_id, "author", author.id);
+      }
+
+      let term = fetch_term(cat_list, author);
+
+      term_relation(term, article_id);
+
+      elapsed++;
+
+      bar.proceed(Math.floor((elapsed * 100) / total));
+    } catch (error) {
+      elapsed++;
+      fs.appendFile(
+        "./errors/article_import.txt",
+        JSON.stringify(error) + "\n",
+        err => {
+          if (err) {
+            throw err;
+          }
+        }
+      );
+    }
+  }
 })();
+
+// Fetch Category lists
+async function fetch_cat() {
+  let query =
+    "SELECT * FROM wp_terms as wt INNER JOIN wp_term_taxonomy as tt ON wt.term_id = tt.term_id WHERE tt.taxonomy = 'category'";
+
+  let p = new Promise((res, rej) => {
+    connection.query(query, (err, result, f) => {
+      if (err) {
+        console.log("Cannot fetch categories from DB");
+        process.exit();
+      }
+      res(result);
+    });
+  });
+  return p;
+}
 
 // Insert article in table
 async function InsertArticle(val_key) {
@@ -79,9 +134,6 @@ async function InsertMeta(article, key, val) {
   return promise;
 }
 
-// Add a attachment type post function
-async function AddAttachment(guid) {}
-
 // Generate insert query data
 function InsertKeyValue(data, type) {
   data = ApplyFilter(data, type);
@@ -104,7 +156,7 @@ function InsertKeyValue(data, type) {
   col += ") VALUES ";
   values = "(";
   for (var i = 0; i < insert_values.length; i++) {
-    values += "'" + insert_values[i] + "'";
+    values += '"' + insert_values[i] + '"';
     if (i != insert_values.length - 1) {
       values += ",";
     }
@@ -119,28 +171,26 @@ function ApplyFilter(data, type) {
   if (type == "articles" || type == "attachment") {
     return {
       post_author: 1,
-      post_date: data["post_date"]
-        ? data["post_date"]
+      post_date: data["date_posted"] ? data["date_posted"] : new Date(),
+      post_date_gmt: data["date_posted"]
+        ? data["date_posted"]
         : new Date().getUTCDate(),
-      post_date_gmt: data["post_date_gmt"]
-        ? data["post_date_gmt"]
-        : new Date().getUTCDate(),
-      post_content: data["post_content"]
-        ? data["post_content"]
-        : "Default Content",
-      post_title: data["post_title"] ? data["post_title"] : "Default Title",
-      post_excerpt: data["post_excerpt"]
-        ? data["post_excerpt"]
+      post_content: data["content"] ? data["content"] : "Default Content",
+      post_title: data["title"] ? data["title"] : "Default Title",
+      post_excerpt: data["excerpt_paras"]
+        ? data["excerpt_paras"]
         : "Default Excerpt",
       post_status: data["post_status"] ? data["post_status"] : "publish",
       comment_status: "open",
       ping_status: "open",
       post_password: "",
-      post_name: "post_name",
+      post_name: data["filename"]
+        ? data["filename"].split("/").join("-")
+        : data["excerpt_meta"]?.toLowerCase().split(" ").join("-"),
       to_ping: "",
       pinged: "",
-      post_modified: new Date().getUTCDate(),
-      post_modified_gmt: new Date().getUTCDate(),
+      post_modified: new Date(),
+      post_modified_gmt: new Date(),
       post_content_filtered: "",
       post_parent: 0,
       guid: (() => {
@@ -155,4 +205,34 @@ function ApplyFilter(data, type) {
       comment_count: 0,
     };
   }
+}
+
+// Add term relation
+function term_relation(term_id, post_id) {
+  let query = `INSERT INTO wp_term_relationships (object_id, term_taxonomy_id, term_order) VALUES(${post_id}, ${term_id}, 0)`;
+
+  let promise = new Promise((res, rej) => {
+    connection.query(query, (e, r) => {
+      if (e) rej(e);
+      res(r);
+    });
+  });
+  return promise;
+}
+
+// Return term id based on post and author
+function fetch_term(list, author) {
+  let section = "";
+  if (author) {
+    section = author.section;
+  }
+  section = section != "" ? section : "National";
+
+  let obj = list.find(val => {
+    if (section == "Opinion") {
+      return val.name == "Opinion (Other)";
+    } else return val.name == section;
+  });
+
+  return obj.term_id;
 }
