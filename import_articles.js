@@ -10,7 +10,7 @@ const mysql = require("mysql");
 // require loader
 const loader = require("./loading.js");
 
-// import authorsv data
+// import authors data
 var authors = require("./authors.json");
 
 if (!authors) {
@@ -27,9 +27,15 @@ const connection = mysql.createConnection({
 });
 
 const images = [
-  "https://www.dropbox.com/sh/j24ler7a98wjf74/AADpFIGXpTn7bi2i7iJRENtoa?dl=0&preview=nys-featured-image-1D.png",
-  "https://www.dropbox.com/sh/j24ler7a98wjf74/AADpFIGXpTn7bi2i7iJRENtoa?dl=0&preview=nys-featured-image-1B.png",
-  "https://www.dropbox.com/sh/j24ler7a98wjf74/AADpFIGXpTn7bi2i7iJRENtoa?dl=0&preview=nys-featured-image-1A.png",
+  {
+    link: "https://www.dropbox.com/sh/j24ler7a98wjf74/AADpFIGXpTn7bi2i7iJRENtoa?dl=0&preview=nys-featured-image-1D.png",
+  },
+  {
+    link: "https://www.dropbox.com/sh/j24ler7a98wjf74/AADpFIGXpTn7bi2i7iJRENtoa?dl=0&preview=nys-featured-image-1B.png",
+  },
+  {
+    link: "https://www.dropbox.com/sh/j24ler7a98wjf74/AADpFIGXpTn7bi2i7iJRENtoa?dl=0&preview=nys-featured-image-1A.png",
+  },
 ];
 
 (async () => {
@@ -47,6 +53,13 @@ const images = [
 
   var elapsed = 0;
 
+  for (let i = 0; i < images.length; i++) {
+    image_val_key = InsertKeyValue(images[i], "attachment");
+    image_id = (await InsertArticle(image_val_key)).insertId;
+
+    images[i]["id"] = image_id;
+  }
+
   for (let obj in articles) {
     if (articles[obj]["status"] != "1") {
       elapsed++;
@@ -54,14 +67,12 @@ const images = [
     }
 
     article_val_key = InsertKeyValue(articles[obj], "articles");
-    articles[obj]["featured_image"] = images[Math.floor(Math.random() * 3)];
-    image_val_key = InsertKeyValue(articles[obj], "attachment");
+
     try {
       article_id = (await InsertArticle(article_val_key)).insertId;
 
-      image_id = (await InsertArticle(image_val_key)).insertId;
-
-      InsertMeta(article_id, "_thumbnail_id", image_id);
+      let image_id = images[Math.floor(Math.random() * 3)];
+      InsertMeta(article_id, "_thumbnail_id", image_id.id);
 
       author = authors[articles[obj]["author"]];
 
@@ -177,10 +188,12 @@ function ApplyFilter(data, type) {
   if (type == "articles" || type == "attachment") {
     return {
       post_author: 1,
-      post_date: data["date_posted"] ? data["date_posted"] : new Date(),
+      post_date: data["date_posted"]
+        ? new Date(data["date_posted"])
+        : new Date(),
       post_date_gmt: data["date_posted"]
-        ? data["date_posted"]
-        : new Date().getUTCDate(),
+        ? Date(data["date_posted"])
+        : new Date(),
       post_content: data["content"] ? data["content"] : "Default Content",
       post_title: data["title"] ? data["title"] : "Default Title",
       post_excerpt: data["excerpt_paras"]
@@ -190,9 +203,13 @@ function ApplyFilter(data, type) {
       comment_status: "open",
       ping_status: "open",
       post_password: "",
-      post_name: data["filename"]
-        ? data["filename"].split("/").join("-")
-        : data["excerpt_meta"]?.toLowerCase().split(" ").join("-"),
+      post_name: (() => {
+        if (data["filename"] && type != "attachment")
+          return data["filename"].split("/").join("-");
+        else if (data["excerpt_meta"])
+          return data["excerpt_meta"]?.toLowerCase().split(" ").join("-");
+        else return data["link"];
+      })(),
       to_ping: "",
       pinged: "",
       post_modified: new Date(),
@@ -201,8 +218,7 @@ function ApplyFilter(data, type) {
       post_parent: 0,
       guid: (() => {
         if (data["guid"] && type == "articles") return data["guid"];
-        else if (data["featured_image"] && type == "attachment")
-          return data["featured_image"];
+        else if (data["linki"] && type == "attachment") return data["link"];
         else return "";
       })(),
       menu_order: 0,
@@ -240,5 +256,10 @@ function fetch_term(list, author) {
     } else return val.name == section;
   });
 
+  if (!obj) {
+    obj = list.find(val => {
+      return val.name == "National";
+    });
+  }
   return obj.term_id;
 }
