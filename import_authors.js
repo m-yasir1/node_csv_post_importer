@@ -124,7 +124,7 @@ function InsertKeyValue(data, type) {
   col += ") VALUES ";
   values = "(";
   for (var i = 0; i < insert_values.length; i++) {
-    values += '"' + insert_values[i] + '"';
+    values += mysql.escape(insert_values[i]);
     if (i != insert_values.length - 1) {
       values += ",";
     }
@@ -146,9 +146,7 @@ function ApplyFilter(data, type) {
         ? data["post_date_gmt"]
         : new Date().toISOString(),
       post_content: data["post_content"] ? data["post_content"] : "",
-      post_title: data["Author"]
-        ? data["Author"].split('"').join("'")
-        : "Default Title",
+      post_title: data["Author"] ? data["Author"] : "Default Title",
       post_excerpt: data["post_excerpt"]
         ? data["post_excerpt"]
         : "Author of nys",

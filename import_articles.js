@@ -63,7 +63,7 @@ const images = [
 
       InsertMeta(article_id, "_thumbnail_id", image_id);
 
-      author = authors[articles[obj]["Author"]];
+      author = authors[articles[obj]["author"]];
 
       if (author) {
         InsertMeta(article_id, "author", author.id);
@@ -77,18 +77,24 @@ const images = [
 
       bar.proceed(Math.floor((elapsed * 100) / total));
     } catch (error) {
-      elapsed++;
-      fs.appendFile(
-        "./errors/article_import.txt",
-        JSON.stringify(error) + "\n",
-        err => {
-          if (err) {
-            throw err;
+      if (error) {
+        elapsed++;
+        bar.proceed(Math.floor((elapsed * 100) / total));
+        fs.appendFile(
+          "./errors/article_import.txt",
+          JSON.stringify(error) + "\n",
+          err => {
+            if (err) {
+              throw err;
+            }
           }
-        }
-      );
+        );
+      }
     }
   }
+  bar.complete();
+  console.log("\n\n\nProcess Completed. Exiting..");
+  process.exit();
 })();
 
 // Fetch Category lists
@@ -156,7 +162,7 @@ function InsertKeyValue(data, type) {
   col += ") VALUES ";
   values = "(";
   for (var i = 0; i < insert_values.length; i++) {
-    values += '"' + insert_values[i] + '"';
+    values += mysql.escape(insert_values[i]);
     if (i != insert_values.length - 1) {
       values += ",";
     }
@@ -224,7 +230,7 @@ function term_relation(term_id, post_id) {
 function fetch_term(list, author) {
   let section = "";
   if (author) {
-    section = author.section;
+    section = author.category;
   }
   section = section != "" ? section : "National";
 
